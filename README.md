@@ -6,14 +6,14 @@
 
 Bring your VST3 collection into your Audio Unit workflow. Build a stereo effects chain, play a favorite synth, or use a VST3 to generate and process MIDI, all from the plug-in slot where you need it.
 
-[Download zyvst v1.0.0 for macOS](https://github.com/zackyusof/zyvst/releases/tag/v1.0.0)
+[Download zyvst v1.1.2 for macOS](https://github.com/zackyusof/zyvst/releases/tag/v1.1.2)
 
 ## Three Audio Units for your sessions
 
 | Audio Unit | Where it fits | What you can do |
 | --- | --- | --- |
 | **zyvst_fx** | Audio effect slot | Chain VST3 audio effects in stereo and shape your sound in one window. |
-| **zyvst inst** | Software instrument slot | Play VST3 synths and instruments from your MIDI tracks. |
+| **zyvst_inst** | Software instrument slot | Play VST3 synths and instruments from your MIDI tracks. |
 | **zyvst_midi** | MIDI FX slot | Add VST3 MIDI generators and processors to your instrument workflow. |
 
 ## Find your plug-ins fast

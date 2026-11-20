@@ -56,7 +56,7 @@ jobs:
             ditto -c -k --keepParent "$bundle" "dist/$slug-$version-macOS-universal-AU.zip"
           done <<'AUS'
           HybridFxA|zyvst_fx|zyvst_fx
-          HybridInstA|zyvst inst|zyvst_inst
+          HybridInstA|zyvst_inst|zyvst_inst
           HybridMidiA|zyvst_midi|zyvst_midi
           AUS
           git archive HEAD | tar -x -C "$RUNNER_TEMP/zyvst-source"
@@ -71,6 +71,6 @@ jobs:
         run: |
           printf '<img src="https://raw.githubusercontent.com/%s/%s/assets/zyvst-hero.png" alt="zyvst" width="1255">\n\n' \
             "$GITHUB_REPOSITORY" "$RELEASE_TAG" > "$RUNNER_TEMP/release.md"
-          cat README.md | sed '1,/^# zyvst$/d' | sed '/^\[Download zyvst v1.0.0 for macOS\]/d' >> "$RUNNER_TEMP/release.md"
+          cat README.md | sed '1,/^# zyvst$/d' | sed '/^\[Download zyvst v[0-9.]* for macOS\]/d' >> "$RUNNER_TEMP/release.md"
           gh release create "$RELEASE_TAG" dist/* --verify-tag \
             --title "zyvst $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release.md"

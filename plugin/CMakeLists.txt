@@ -74,7 +74,7 @@ if(ZYV_BUILD_FX)
 endif()
 
 if(ZYV_BUILD_INST)
-    zyv_add_au(HybridInstA "ZyIn" kAudioUnitType_MusicDevice TRUE FALSE "zyvst inst" "zyvst" "org.zyvst.instrument")
+    zyv_add_au(HybridInstA "ZyIn" kAudioUnitType_MusicDevice TRUE FALSE "zyvst_inst" "zyvst_inst" "org.zyvst.instrument")
 endif()
 
 if(ZYV_BUILD_MIDI)

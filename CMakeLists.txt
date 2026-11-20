@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(zyvst VERSION 1.0.0 LANGUAGES C CXX)
+project(zyvst VERSION 1.1.2 LANGUAGES C CXX)
 
 if(APPLE)
     if(NOT CMAKE_OSX_ARCHITECTURES)
