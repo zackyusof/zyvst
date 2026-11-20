@@ -1,0 +1,60 @@
+name: Build macOS Audio Units
+
+on:
+  push:
+    tags: ['v1.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-15
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Build Universal Audio Units
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DZYV_BUILD_FX=ON -DZYV_BUILD_INST=ON -DZYV_BUILD_MIDI=ON
+          cmake --build build --parallel 2 --target HybridFxA_AU HybridInstA_AU HybridMidiA_AU
+      - name: Verify and package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist "$RUNNER_TEMP/zyvst-source/third_party/JUCE"
+          while IFS='|' read -r target product slug; do
+            bundle="build/plugin/${target}_artefacts/Release/AU/$product.component"
+            codesign --verify --strict "$bundle"
+            lipo -verify_arch arm64 x86_64 "$bundle/Contents/MacOS/$product"
+            installed_version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$bundle/Contents/Info.plist")"
+            test "$installed_version" = "$version"
+            ditto -c -k --keepParent "$bundle" "dist/$slug-$version-macOS-universal-AU.zip"
+          done <<'AUS'
+          HybridFxA|zyvst_fx|zyvst_fx
+          HybridInstA|zyvst inst|zyvst_inst
+          HybridMidiA|zyvst_midi|zyvst_midi
+          AUS
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/zyvst-source"
+          git -C third_party/JUCE archive HEAD | tar -x -C "$RUNNER_TEMP/zyvst-source/third_party/JUCE"
+          tar -czf "dist/zyvst-$version-source.tar.gz" -C "$RUNNER_TEMP" zyvst-source
+          (cd dist && shasum -a 256 -- *.zip *.tar.gz > SHA256SUMS.txt)
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '<img src="https://raw.githubusercontent.com/%s/%s/assets/zyvst-hero.png" alt="zyvst" width="1255">\n\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release.md"
+          cat README.md | sed '1,/^# zyvst$/d' | sed '/^\[Download zyvst v1.0.0 for macOS\]/d' >> "$RUNNER_TEMP/release.md"
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+            --title "zyvst $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release.md"

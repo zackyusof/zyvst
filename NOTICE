@@ -1,0 +1,12 @@
+zyvst derives from AU-VST3-Wrapper by Ivica Milic
+(https://github.com/ivicamil/AU-VST3-Wrapper, commit 344fafc), licensed under
+GPL-3.0. See LICENSE. zyvst contains modifications for serial VST3 hosting,
+MIDI transport, Audio Unit variants, and the plug-in picker.
+
+The engine design draws on patterns from AudioGridder by Andreas Pohl
+(https://github.com/apohl79/audiogridder), which is MIT-licensed.
+AudioGridder source is not included.
+
+The release uses the JUCE Framework under AGPLv3, combined under section 13
+of GPLv3 and AGPLv3. JUCE’s licence (LICENSE-JUCE) and third-party notices accompany its
+source. See SOURCE.md for the corresponding source of this release.
