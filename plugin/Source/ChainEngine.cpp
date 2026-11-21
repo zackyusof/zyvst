@@ -8,6 +8,7 @@ namespace
 constexpr const char* chainTag = "CHAIN";
 constexpr const char* slotTag  = "SLOT";
 constexpr const char* bypassTag = "bypassed";
+constexpr const char* soloTag   = "soloed";
 constexpr const char* descTag   = "desc";
 constexpr const char* dataTag   = "data";
 } // namespace
@@ -294,7 +295,7 @@ void ChainEngine::rebuildActiveChain()
     for (auto& s : slots)
     {
         if (s->instance != nullptr)
-            newChain->slots.push_back ({ s->instance.get(), &s->bypassed });
+            newChain->slots.push_back ({ s->instance.get(), &s->bypassed, &s->soloed });
     }
     activeChain.store (newChain.get(), std::memory_order_release);
     activeChainStorage = std::move (newChain);
@@ -362,9 +363,23 @@ void ChainEngine::process (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& m
     // 3. Process serial chain with full MIDI and instrument support
     juce::MidiBuffer currentMidi = midi;
 
+    // Solo is exclusive: while anything is soloed, only soloed stages run. The
+    // flags are plain atomics, so this stays lock-free on the audio thread.
+    bool anySoloed = false;
+
+    for (const auto& slot : chain->slots)
+        if (slot.soloed != nullptr && slot.soloed->load (std::memory_order_relaxed))
+        {
+            anySoloed = true;
+            break;
+        }
+
     for (const auto& slot : chain->slots)
     {
         if (slot.instance == nullptr || (slot.bypassed != nullptr && slot.bypassed->load (std::memory_order_relaxed)))
+            continue;
+
+        if (anySoloed && (slot.soloed == nullptr || ! slot.soloed->load (std::memory_order_relaxed)))
             continue;
 
         auto* instance = slot.instance;
@@ -494,6 +509,18 @@ void ChainEngine::setSlotBypassed (int index, bool shouldBeBypassed)
     notifyChange();
 }
 
+void ChainEngine::setSlotSoloed (int index, bool shouldBeSoloed)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock (slotLock);
+        if (! juce::isPositiveAndBelow (index, static_cast<int> (slots.size())))
+            return;
+        slots[static_cast<size_t> (index)]->soloed.store (shouldBeSoloed, std::memory_order_relaxed);
+    }
+    updateLatency();
+    notifyChange();
+}
+
 int ChainEngine::getNumSlots() const
 {
     const juce::SpinLock::ScopedLockType lock (slotLock);
@@ -536,6 +563,27 @@ bool ChainEngine::isSlotBypassed (int index) const
     return slots[static_cast<size_t> (index)]->bypassed.load();
 }
 
+bool ChainEngine::isSlotSoloed (int index) const
+{
+    const juce::SpinLock::ScopedLockType lock (slotLock);
+
+    if (! juce::isPositiveAndBelow (index, static_cast<int> (slots.size())))
+        return false;
+
+    return slots[static_cast<size_t> (index)]->soloed.load();
+}
+
+bool ChainEngine::isAnySlotSoloed() const
+{
+    const juce::SpinLock::ScopedLockType lock (slotLock);
+
+    for (const auto& slot : slots)
+        if (slot->soloed.load (std::memory_order_relaxed))
+            return true;
+
+    return false;
+}
+
 juce::AudioPluginInstance* ChainEngine::getSlotInstance (int index) const
 {
     const juce::SpinLock::ScopedLockType lock (slotLock);
@@ -553,8 +601,18 @@ void ChainEngine::updateLatency()
     {
         const juce::SpinLock::ScopedLockType lock (slotLock);
 
+        bool anySoloed = false;
+
+        for (const auto& slot : slots)
+            if (slot->soloed.load (std::memory_order_relaxed))
+            {
+                anySoloed = true;
+                break;
+            }
+
         for (auto& slot : slots)
-            if (slot->instance != nullptr && ! slot->bypassed.load (std::memory_order_relaxed))
+            if (slot->instance != nullptr && ! slot->bypassed.load (std::memory_order_relaxed)
+                && (! anySoloed || slot->soloed.load (std::memory_order_relaxed)))
                 total += slot->instance->getLatencySamples();
     }
 
@@ -576,6 +634,7 @@ juce::ValueTree ChainEngine::saveState() const
     {
         juce::ValueTree node (slotTag);
         node.setProperty (bypassTag, slot->bypassed.load(), nullptr);
+        node.setProperty (soloTag, slot->soloed.load(), nullptr);
 
         if (auto xml = slot->desc.createXml())
             node.setProperty (descTag, xml->toString (juce::XmlElement::TextFormat().singleLine()), nullptr);
@@ -630,6 +689,7 @@ bool ChainEngine::restoreState (const juce::ValueTree& chain)
         auto slot = std::make_unique<Slot>();
         slot->desc = desc;
         slot->bypassed.store (static_cast<bool> (node.getProperty (bypassTag, false)));
+        slot->soloed.store (static_cast<bool> (node.getProperty (soloTag, false)));
         slot->savedData = node.getProperty (dataTag).toString();
 
         juce::String error;

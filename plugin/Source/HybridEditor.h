@@ -42,16 +42,15 @@ public:
         virtual ~Listener() = default;
         virtual void slotRowSelected (int slotIndex) = 0;
         virtual void slotRowBypassToggled (int slotIndex) = 0;
-        virtual void slotRowMoved (int fromIndex, int toIndex) = 0;
+        virtual void slotRowSoloToggled (int slotIndex) = 0;
         virtual void slotRowRemoved (int slotIndex) = 0;
     };
 
     explicit SlotRowComponent (Listener&);
     ~SlotRowComponent() override = default;
 
-    void update (int rowNumber, bool isSelected, bool isBypassed,
-                 const juce::String& name, const juce::String& vendor,
-                 bool canMoveUp, bool canMoveDown);
+    void update (int rowNumber, bool isSelected, bool isBypassed, bool isSoloed,
+                 bool soloActive, const juce::String& name, const juce::String& vendor);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -63,12 +62,13 @@ private:
     int slotIndex = -1;
     bool isSelected = false;
     bool isBypassed = false;
+    bool isSoloed = false;
+    bool soloActive = false;
     juce::String slotName;
     juce::String slotVendor;
 
     juce::TextButton bypassButton;
-    juce::TextButton moveUpButton;
-    juce::TextButton moveDownButton;
+    juce::TextButton soloButton;
     juce::TextButton removeButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SlotRowComponent)
@@ -130,7 +130,7 @@ public:
     // SlotRowComponent::Listener implementation
     void slotRowSelected (int slotIndex) override;
     void slotRowBypassToggled (int slotIndex) override;
-    void slotRowMoved (int fromIndex, int toIndex) override;
+    void slotRowSoloToggled (int slotIndex) override;
     void slotRowRemoved (int slotIndex) override;
 
     // ChainListBox::DragListener implementation
@@ -161,6 +161,8 @@ private:
     juce::Rectangle<int> rightPaneArea() const;
     void toggleMasterBypass();
     void updateMasterBypassState();
+    /** Applies a drag-and-drop reorder (nudge buttons were removed). */
+    void moveSlot (int fromIndex, int toIndex);
 
     ModernLookAndFeel modernLnf;
     HybridProcessor& wrapperProcessor;
@@ -191,7 +193,7 @@ private:
     int cachedRows = 0;
     juce::Component::SafePointer<HybridEditor> safeThis { this };
 
-    static constexpr int leftPaneWidth = 250;
+    static constexpr int leftPaneWidth = 320;
     static constexpr int headerHeight  = 44;
     static constexpr int footerHeight  = 26;
     static constexpr int slotRowHeight = 48;

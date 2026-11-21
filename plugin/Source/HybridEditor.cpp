@@ -24,6 +24,9 @@ constexpr auto accentRed      = 0xffff4d5a;
 constexpr auto textPrimary    = 0xfff4f5f8;
 constexpr auto textSecondary  = 0xff8c96a8;
 constexpr auto textDim        = 0xff545c6e;
+
+/** One control type scale for the whole editor chrome. */
+constexpr float uiFontHeight  = 13.0f;
 } // namespace Theme
 
 namespace
@@ -414,10 +417,11 @@ void ModernLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
                                                            : juce::TextButton::textColourOffId));
 
     const int yIndent = juce::jmin (4, button.proportionOfHeight (0.3f));
-    const int cornerSize = juce::jmin (button.getHeight(), button.getWidth()) / 2;
 
-    const int fontLeft = juce::jmax (0, cornerSize / 2);
-    const int fontRight = button.getWidth() - fontLeft;
+    // Small symmetric padding: rectangular buttons do not need the round-button
+    // half-corner inset, which used to squeeze (and visually shrink) short labels.
+    const int fontLeft = 4;
+    const int fontRight = button.getWidth() - 4;
 
     if (fontRight > fontLeft)
         g.drawFittedText (button.getButtonText(),
@@ -428,13 +432,10 @@ void ModernLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
 
 juce::Font ModernLookAndFeel::getTextButtonFont (juce::TextButton& button, int buttonHeight)
 {
-    // The pane action buttons ("+ Add VST3", "Browse...") share one explicit size,
-    // so they render identically regardless of their individual width: the fitted
-    // text call above must never have to shrink one of them to make it fit.
-    if (button.getComponentID() == "paneAction")
-        return juce::Font (juce::FontOptions (13.0f, juce::Font::bold));
-
-    return juce::Font (juce::FontOptions (juce::jlimit (10.0f, 16.0f, (float) buttonHeight * 0.6f)));
+    // Every chrome button (header master bypass, pane actions, per-slot ON/Solo/×)
+    // shares one explicit size so the UI reads as a single type scale.
+    juce::ignoreUnused (button, buttonHeight);
+    return juce::Font (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
 }
 
 void ModernLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
@@ -527,12 +528,15 @@ void ModernLookAndFeel::drawScrollbar (juce::Graphics& g, juce::ScrollBar& scrol
 SlotRowComponent::SlotRowComponent (Listener& l)
     : listener (l)
 {
-    moveUpButton.setButtonText (juce::String::charToString (0x25B2));
-    moveDownButton.setButtonText (juce::String::charToString (0x25BC));
     removeButton.setButtonText (juce::String::charToString (0x00D7));
     bypassButton.setButtonText ("ON");
+    soloButton.setButtonText ("SOLO");
 
-    for (auto* b : { &bypassButton, &moveUpButton, &moveDownButton, &removeButton })
+    bypassButton.setTooltip ("Bypass this stage");
+    soloButton.setTooltip ("Solo this stage (only soloed stages process)");
+    removeButton.setTooltip ("Remove this stage");
+
+    for (auto* b : { &bypassButton, &soloButton, &removeButton })
     {
         b->setColour (juce::TextButton::buttonColourId, juce::Colour (Theme::cardBg));
         b->setColour (juce::TextButton::textColourOffId, juce::Colour (Theme::textSecondary));
@@ -540,23 +544,20 @@ SlotRowComponent::SlotRowComponent (Listener& l)
     }
 
     bypassButton.onClick = [this] { listener.slotRowBypassToggled (slotIndex); };
-    moveUpButton.onClick = [this] { listener.slotRowMoved (slotIndex, slotIndex - 1); };
-    moveDownButton.onClick = [this] { listener.slotRowMoved (slotIndex, slotIndex + 1); };
+    soloButton.onClick = [this] { listener.slotRowSoloToggled (slotIndex); };
     removeButton.onClick = [this] { listener.slotRowRemoved (slotIndex); };
 }
 
-void SlotRowComponent::update (int rowNumber, bool rowSelected, bool rowBypassed,
-                               const juce::String& name, const juce::String& vendor,
-                               bool canMoveUp, bool canMoveDown)
+void SlotRowComponent::update (int rowNumber, bool rowSelected, bool rowBypassed, bool rowSoloed,
+                               bool anySoloed, const juce::String& name, const juce::String& vendor)
 {
     slotIndex = rowNumber;
     isSelected = rowSelected;
     isBypassed = rowBypassed;
+    isSoloed = rowSoloed;
+    soloActive = anySoloed;
     slotName = name;
     slotVendor = vendor;
-
-    moveUpButton.setEnabled (canMoveUp);
-    moveDownButton.setEnabled (canMoveDown);
 
     if (isBypassed)
     {
@@ -569,6 +570,18 @@ void SlotRowComponent::update (int rowNumber, bool rowSelected, bool rowBypassed
         bypassButton.setButtonText ("ON");
         bypassButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff142624));
         bypassButton.setColour (juce::TextButton::textColourOffId, juce::Colour (Theme::accentTeal));
+    }
+
+    if (isSoloed)
+    {
+        soloButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff2a2013));
+        soloButton.setColour (juce::TextButton::textColourOffId, juce::Colour (Theme::accentAmber));
+    }
+    else
+    {
+        soloButton.setColour (juce::TextButton::buttonColourId, juce::Colour (Theme::cardBg));
+        soloButton.setColour (juce::TextButton::textColourOffId,
+                              juce::Colour (Theme::textSecondary).withAlpha (anySoloed ? 0.45f : 1.0f));
     }
 
     removeButton.setColour (juce::TextButton::textColourOffId, juce::Colour (Theme::accentRed).withAlpha (0.8f));
@@ -606,7 +619,7 @@ void SlotRowComponent::paint (juce::Graphics& g)
         g.drawRoundedRectangle (card.reduced (0.5f), radius, 1.0f);
     }
 
-    const float alpha = isBypassed ? 0.45f : 1.0f;
+    const float alpha = isBypassed ? 0.45f : (soloActive && ! isSoloed ? 0.35f : 1.0f);
 
     // Drag handle grip dots (2 columns of 3 dots)
     const float gripX = card.getX() + 6.0f;
@@ -630,15 +643,15 @@ void SlotRowComponent::paint (juce::Graphics& g)
 
     // Text labels area
     const int textX = (int) card.getX() + 44;
-    const int textW = juce::jmax (10, (int) card.getWidth() - 44 - 100);
+    const int textW = juce::jmax (10, (int) card.getWidth() - 44 - 112);
 
     // Plugin Name
-    g.setFont (juce::FontOptions (12.5f, juce::Font::bold));
+    g.setFont (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
     g.setColour (juce::Colour (Theme::textPrimary).withAlpha (alpha));
-    g.drawText (slotName, textX, (int) card.getY() + 4, textW, 18, juce::Justification::centredLeft, true);
+    g.drawText (slotName, textX, (int) card.getY() + 3, textW, 18, juce::Justification::centredLeft, true);
 
     // Vendor & Format subtitle
-    g.setFont (juce::FontOptions (10.0f));
+    g.setFont (juce::FontOptions (11.0f));
     g.setColour (juce::Colour (Theme::textSecondary).withAlpha (alpha * 0.9f));
     g.drawText (slotVendor + " • VST3", textX, (int) card.getY() + 21, textW, 15, juce::Justification::centredLeft, true);
 }
@@ -647,15 +660,13 @@ void SlotRowComponent::resized()
 {
     auto card = getLocalBounds().reduced (2, 2);
 
-    auto right = card.removeFromRight (100).reduced (2, 8);
+    auto right = card.removeFromRight (112).reduced (3, 8);
 
     removeButton.setBounds (right.removeFromRight (20));
-    right.removeFromRight (4);
+    right.removeFromRight (3);
 
-    moveDownButton.setBounds (right.removeFromRight (18));
-    right.removeFromRight (2);
-    moveUpButton.setBounds (right.removeFromRight (18));
-    right.removeFromRight (4);
+    soloButton.setBounds (right.removeFromRight (44));
+    right.removeFromRight (3);
 
     bypassButton.setBounds (right.removeFromRight (30));
 }
@@ -792,14 +803,13 @@ HybridEditor::HybridEditor (HybridProcessor& p)
     setLookAndFeel (&modernLnf);
     zyMarkDrawable = juce::Drawable::createFromSVGString (kZyMarkSvg);
     setResizable (true, false);
-    setResizeLimits (420, 260, 3000, 2400);
 
     // Header Controls
     masterBypassButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff1b1e25));
     masterBypassButton.onClick = [this] { toggleMasterBypass(); };
     addAndMakeVisible (masterBypassButton);
 
-    latencyPill.setFont (juce::FontOptions (11.5f, juce::Font::bold));
+    latencyPill.setFont (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
     latencyPill.setJustificationType (juce::Justification::centred);
     latencyPill.setColour (juce::Label::backgroundColourId, juce::Colour (0xff191c24));
     latencyPill.setColour (juce::Label::outlineColourId, juce::Colour (Theme::borderSubtle));
@@ -808,11 +818,11 @@ HybridEditor::HybridEditor (HybridProcessor& p)
 
     // Left Pane Controls
     chainHeaderLabel.setText ("PROCESSING CHAIN", juce::dontSendNotification);
-    chainHeaderLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    chainHeaderLabel.setFont (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
     chainHeaderLabel.setColour (juce::Label::textColourId, juce::Colour (Theme::textSecondary));
     addAndMakeVisible (chainHeaderLabel);
 
-    slotCountBadge.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    slotCountBadge.setFont (juce::FontOptions (11.0f, juce::Font::bold));
     slotCountBadge.setJustificationType (juce::Justification::centred);
     slotCountBadge.setColour (juce::Label::backgroundColourId, juce::Colour (0xff1b1e26));
     slotCountBadge.setColour (juce::Label::outlineColourId, juce::Colour (Theme::borderSubtle));
@@ -843,11 +853,12 @@ HybridEditor::HybridEditor (HybridProcessor& p)
     addAndMakeVisible (slotList);
 
     // Footer Status
-    status.setFont (juce::FontOptions (11.0f));
+    status.setFont (juce::FontOptions (Theme::uiFontHeight));
     status.setColour (juce::Label::textColourId, juce::Colour (Theme::textSecondary));
     addAndMakeVisible (status);
 
-    setSize (780, 480);
+    setResizeLimits (620, 300, 3000, 2400);
+    setSize (860, 480);
     startTimerHz (10);
     updateControls();
     updateMasterBypassState();
@@ -926,7 +937,7 @@ void HybridEditor::paint (juce::Graphics& g)
     g.drawText ("zyvst", 58, 12, 54, 20, juce::Justification::centredLeft, false);
 
     // Wrapper Subtitle
-    g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    g.setFont (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
     g.setColour (juce::Colour (Theme::textSecondary));
 #if JucePlugin_IsMidiEffect
     const char* typeLabel = "MIDI FX";
@@ -935,16 +946,16 @@ void HybridEditor::paint (juce::Graphics& g)
 #else
     const char* typeLabel = "FX";
 #endif
-    g.drawText (typeLabel, 116, 13, 90, 18, juce::Justification::centredLeft, false);
+    g.drawText (typeLabel, 116, 11, 96, 22, juce::Justification::centredLeft, false);
 
     // Version Badge Pill
-    auto verRect = juce::Rectangle<float> (184.0f, 12.0f, 96.0f, 20.0f);
+    auto verRect = juce::Rectangle<float> (216.0f, 11.0f, 112.0f, 22.0f);
     g.setColour (juce::Colour (0xff191c24));
-    g.fillRoundedRectangle (verRect, 10.0f);
+    g.fillRoundedRectangle (verRect, 11.0f);
     g.setColour (juce::Colour (Theme::borderSubtle));
-    g.drawRoundedRectangle (verRect.reduced (0.5f), 10.0f, 1.0f);
+    g.drawRoundedRectangle (verRect.reduced (0.5f), 11.0f, 1.0f);
 
-    g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    g.setFont (juce::FontOptions (Theme::uiFontHeight, juce::Font::bold));
     g.setColour (juce::Colour (Theme::textSecondary));
     g.drawText (ZYV_BUILD_LABEL, verRect, juce::Justification::centred, false);
 
@@ -1036,8 +1047,8 @@ void HybridEditor::resized()
     latencyPill.setBounds (getWidth() - 240, 9, 126, 26);
 
     // Left Pane
-    chainHeaderLabel.setBounds (12, headerHeight + 8, 120, 20);
-    slotCountBadge.setBounds (134, headerHeight + 9, 24, 18);
+    chainHeaderLabel.setBounds (12, headerHeight + 8, 150, 20);
+    slotCountBadge.setBounds (166, headerHeight + 9, 24, 18);
     clearButton.setBounds (leftPaneWidth - 54, headerHeight + 8, 44, 20);
 
     const int actionY = headerHeight + 34;
@@ -1119,10 +1130,10 @@ juce::Component* HybridEditor::refreshComponentForRow (int rowNumber, bool isRow
     const auto name = chain.getSlotName (rowNumber);
     const auto vendor = chain.getSlotVendor (rowNumber);
     const bool bypassed = chain.isSlotBypassed (rowNumber);
-    const bool canMoveUp = (rowNumber > 0);
-    const bool canMoveDown = (rowNumber < chain.getNumSlots() - 1);
+    const bool soloed = chain.isSlotSoloed (rowNumber);
+    const bool soloActive = chain.isAnySlotSoloed();
 
-    rowComp->update (rowNumber, isRowSelected, bypassed, name, vendor, canMoveUp, canMoveDown);
+    rowComp->update (rowNumber, isRowSelected, bypassed, soloed, soloActive, name, vendor);
     return rowComp;
 }
 
@@ -1155,7 +1166,19 @@ void HybridEditor::slotRowBypassToggled (int slotIndex)
     slotList.repaint();
 }
 
-void HybridEditor::slotRowMoved (int fromIndex, int toIndex)
+void HybridEditor::slotRowSoloToggled (int slotIndex)
+{
+    auto& chain = wrapperProcessor.getChain();
+    if (! juce::isPositiveAndBelow (slotIndex, chain.getNumSlots()))
+        return;
+
+    chain.setSlotSoloed (slotIndex, ! chain.isSlotSoloed (slotIndex));
+    wrapperProcessor.reportLatencyToHost();
+    slotList.updateContent();
+    slotList.repaint();
+}
+
+void HybridEditor::moveSlot (int fromIndex, int toIndex)
 {
     auto& chain = wrapperProcessor.getChain();
     const auto numSlots = chain.getNumSlots();
@@ -1195,7 +1218,7 @@ void HybridEditor::slotRowRemoved (int slotIndex)
 
 void HybridEditor::slotDropped (int fromIndex, int toIndex)
 {
-    slotRowMoved (fromIndex, toIndex);
+    moveSlot (fromIndex, toIndex);
 }
 
 void HybridEditor::clearAllSlots()

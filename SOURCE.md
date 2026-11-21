@@ -1,6 +1,6 @@
 # Source
 
-The matching source archive accompanies the binaries on the v1.0.0 release.
+The matching source archive accompanies the binaries on every release.
 It includes the exact JUCE revision used to build the Audio Units, JUCE's
 third-party notices, and the build workflow. The repository also records
 the JUCE revision as a Git submodule.

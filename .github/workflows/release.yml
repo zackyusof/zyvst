@@ -72,5 +72,6 @@ jobs:
           printf '<img src="https://raw.githubusercontent.com/%s/%s/assets/zyvst-hero.png" alt="zyvst" width="1255">\n\n' \
             "$GITHUB_REPOSITORY" "$RELEASE_TAG" > "$RUNNER_TEMP/release.md"
           cat README.md | sed '1,/^# zyvst$/d' | sed '/^\[Download zyvst v[0-9.]* for macOS\]/d' >> "$RUNNER_TEMP/release.md"
+          awk 'BEGIN{p=0} /^# zyvst v/{ if(p){exit} p=1 } p' CHANGELOG.md >> "$RUNNER_TEMP/release.md"
           gh release create "$RELEASE_TAG" dist/* --verify-tag \
             --title "zyvst $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release.md"

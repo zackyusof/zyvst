@@ -62,12 +62,17 @@ public:
     void removePlugin (int index);
     /** Hard dry bypass: the skipped child contributes no latency. */
     void setSlotBypassed (int index, bool shouldBeBypassed);
+    /** Exclusive audition: while any slot is soloed, only soloed slots process.
+        Bypass still wins, so a soloed+bypassed slot stays silent. */
+    void setSlotSoloed (int index, bool shouldBeSoloed);
     void moveSlot (int from, int to);
 
     int getNumSlots() const;
     juce::String getSlotName (int index) const;
     juce::String getSlotVendor (int index) const;
     bool isSlotBypassed (int index) const;
+    bool isSlotSoloed (int index) const;
+    bool isAnySlotSoloed() const;
     juce::AudioPluginInstance* getSlotInstance (int index) const;
 
 private:
@@ -82,6 +87,7 @@ private:
         juce::PluginDescription desc;
         std::unique_ptr<juce::AudioPluginInstance> instance;
         std::atomic<bool> bypassed { false };
+        std::atomic<bool> soloed { false };
         juce::String savedData;
         juce::String loadError;
         juce::AudioProcessorListener* listener = nullptr;
@@ -91,6 +97,7 @@ private:
     {
         juce::AudioPluginInstance* instance = nullptr;
         std::atomic<bool>* bypassed = nullptr;
+        std::atomic<bool>* soloed = nullptr;
     };
 
     struct ActiveChain

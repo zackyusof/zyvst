@@ -6,7 +6,7 @@
 
 Bring your VST3 collection into your Audio Unit workflow. Build a stereo effects chain, play a favorite synth, or use a VST3 to generate and process MIDI, all from the plug-in slot where you need it.
 
-[Download zyvst v1.1.2 for macOS](https://github.com/zackyusof/zyvst/releases/tag/v1.1.2)
+[Download zyvst v1.2.0 for macOS](https://github.com/zackyusof/zyvst/releases/tag/v1.2.0)
 
 ## Three Audio Units for your sessions
 
@@ -23,9 +23,11 @@ Bring your VST3 collection into your Audio Unit workflow. Build a stereo effects
 ## Make the chain your own
 
 - **Work with familiar controls.** Open hosted plug-in editors directly in the zyvst window and adjust them alongside the chain.
-- **Shape the order.** Drag plug-ins into place or nudge them up and down. Remove a slot or clear the chain when you want to start fresh.
+- **Shape the order.** Drag a plug-in card into place — the whole card is the handle, with a live insertion marker while you move. Remove a slot or clear the chain when you want to start fresh.
+- **Audition one stage.** Solo any slot to hear it on its own; every other stage steps out of the way. Bypass always wins, and the reported latency follows the chain you can actually hear.
+- **See every name.** The processing chain sits in a wider pane, so long plug-in names have room before they truncate.
 - **Compare in a click.** Bypass an individual slot or the entire chain. See the reported latency in samples while your DAW handles delay compensation.
-- **Pick up where you left off.** Your session recalls the chain and the settings of its hosted plug-ins.
+- **Pick up where you left off.** Your session recalls the chain, its solo and bypass states, and the settings of its hosted plug-ins.
 - **Keep MIDI in step.** For plug-ins that accept MIDI clock, zyvst can send clock and transport messages based on DAW playback. MIDI output depends on the hosted plug-in.
 
 ## Get started
