@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/zyvst-hero.png" alt="zyvst with the RF-76 compressor hosted beside a chain of two Riverflux Audio plug-ins, each with ON and SOLO" width="1337">
+  <img src="assets/zyvst-hero.png" alt="A full RF-E channel strip VST3 hosted in the zyvst window" width="812">
 </p>
 
 # zyvst
@@ -31,7 +31,7 @@ Bring your VST3 collection into your Audio Unit workflow. Build a stereo effects
 - **Keep MIDI in step.** For plug-ins that accept MIDI clock, zyvst can send clock and transport messages based on DAW playback. MIDI output depends on the hosted plug-in.
 
 <p align="center">
-  <img src="assets/zyvst-detail.png" alt="A full RF-E channel strip VST3 hosted in the zyvst window" width="812">
+  <img src="assets/zyvst-detail.png" alt="zyvst with the RF-76 compressor hosted beside a chain of two Riverflux Audio plug-ins, each with ON and SOLO" width="1337">
 </p>
 
 ## Get started
