@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/zyvst-hero.png" alt="zyvst with a VST3 effect open beside the processing chain" width="1255">
+  <img src="assets/zyvst-hero.png" alt="zyvst with the RF-76 compressor hosted beside a chain of two Riverflux Audio plug-ins, each with ON and SOLO" width="1337">
 </p>
 
 # zyvst
@@ -29,6 +29,10 @@ Bring your VST3 collection into your Audio Unit workflow. Build a stereo effects
 - **Compare in a click.** Bypass an individual slot or the entire chain. See the reported latency in samples while your DAW handles delay compensation.
 - **Pick up where you left off.** Your session recalls the chain, its solo and bypass states, and the settings of its hosted plug-ins.
 - **Keep MIDI in step.** For plug-ins that accept MIDI clock, zyvst can send clock and transport messages based on DAW playback. MIDI output depends on the hosted plug-in.
+
+<p align="center">
+  <img src="assets/zyvst-detail.png" alt="A full RF-E channel strip VST3 hosted in the zyvst window" width="812">
+</p>
 
 ## Get started
 
