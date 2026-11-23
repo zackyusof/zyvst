@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/zyvst-strip.png" alt="A full RF-E channel strip VST3 hosted in the zyvst window" width="812">
+  <img src="assets/zyvst-strip.png" alt="A full RF-E channel strip VST3 hosted in the zyvst window" width="612">
 </p>
 
 # zyvst
